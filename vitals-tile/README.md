@@ -30,6 +30,55 @@ Stop with `Ctrl-C`.
 
 ![Demo animation](preview/demo.gif)
 
+### Run it automatically
+
+Install the systemd user service (starts at login, restarts on crashes, and
+reconnects by itself when the board is unplugged or rebooted):
+
+```bash
+./scripts/install-autostart.sh                  # install + enable + start
+./scripts/install-autostart.sh --uninstall
+systemctl --user status vitals-tile
+journalctl --user -u vitals-tile -f
+```
+
+Stop it before running `./run.sh` by hand — the tile has one data stream and two
+readers would compete.
+
+### Which RP2040? (multiple serial devices)
+
+The host only opens ports that carry CircuitPython's **CDC2 data** interface, and
+then requires two proofs of identity:
+
+1. The USB serial in [`tile.json`](tile.json) must match the port's serial (which
+   is the RP2040 chip UID).
+2. The firmware must answer the handshake with `VIT1 <uid> <board_id>`.
+
+Everything else — Arduinos, GPS dongles, another Pico, even another Feather
+running this same firmware with a different UID — is ignored and never written
+to. Nothing is hardcoded to `/dev/ttyACM0`: discovery re-scans on every reconnect,
+so USB renumbering, unplug/replug and board resets are handled.
+
+```bash
+./run.sh --list   # every serial port, * marks the configured tile
+./run.sh --id     # DF6160D2632A2926 adafruit_feather_rp2040_usb_host /dev/ttyACM1
+```
+
+### Configuration
+
+[`tile.json`](tile.json) pins the board:
+
+```json
+{
+  "serial": "DF6160D2632A2926",
+  "board_id": "adafruit_feather_rp2040_usb_host",
+  "fps": 2.0
+}
+```
+
+Remove `serial` to accept any RP2040 running the firmware. `--serial` / `--board`
+override the file; `--config` points at another file.
+
 ## Hardware
 
 | Part | Notes |
@@ -67,16 +116,21 @@ so there is no `lib/` folder to manage.
 ## Usage
 
 ```
-./run.sh [--port /dev/ttyACM1] [--fps 2] [--simulate] [--png out.png]
-         [--gif out.gif] [--seconds 10] [--scale 4] [--quiet]
+./run.sh [--fps 2] [--simulate] [--quiet]
+         [--list] [--id] [--port DEV] [--serial UID] [--board ID] [--config FILE]
+         [--png out.png] [--gif out.gif] [--seconds 10] [--scale 4]
 ```
 
 | Flag | Meaning |
 | :--- | :--- |
 | `--simulate` | send a scripted 10 s AI workload instead of real sensors |
+| `--list` | list serial ports, `*` marks the configured tile |
+| `--id` | print detected `<uid> <board> <port>` and exit |
 | `--png PATH` | save one frame of *real* data as an upscaled PNG, no board needed |
 | `--gif PATH` | save the scripted animation, no board needed |
-| `--port` | override auto-detection |
+| `--port` | explicit device, still identity-checked |
+| `--serial` / `--board` | override `tile.json` expectations |
+| `--config` | alternate config file |
 | `--fps` | frame rate, default 2 (USB is fast; 2 is plenty for gauges) |
 
 ## How it works
@@ -92,9 +146,9 @@ Framework Desktop                         Feather RP2040 USB Host
 
 * The PC renders a 128x64 **1-bit** image with a pixel font (Silkscreen, OFL), so
   the panel looks identical to the previews — no font rendering on the Pico.
-* Wire format: `0xA5 0x5A` + 1024 bytes, SSD1306 page format. An ASCII `VIT?\n`
-  handshake identifies the data port and confirms the tile is alive; `STAT?\n`
-  returns the number of frames drawn.
+* Wire format: `0xA5 0x5A` + 1024 bytes, SSD1306 page format. `VIT?\n` returns
+  `VIT1 <uid> <board_id>` (identity + liveness); `STAT?\n` returns the number of
+  frames drawn.
 * Pixels are converted from row-major/ MSB-first (PIL) to the SSD1306's
   column-major/ LSB-first page layout in [`host/render.py`](host/render.py).
 * After 4 s without frames the tile redraws its **WAITING FOR HOST** splash
@@ -146,6 +200,8 @@ Add the USB hub + CMSIS-DAP later; the OLED path stays a dumb I2C sink.
 
 | Symptom | Fix |
 | :--- | :--- |
+| `connected but not answering` | `code.py` is not running — press Ctrl-D in the tile's REPL or re-save the file |
+| `Tile is in BOOTSEL mode` | The board was double-tapped; reflash CircuitPython and the firmware |
 | `none answered the handshake` | Check the console (`screen /dev/ttyACM0 115200`): is `SSD1306: 0x3c` printed? |
 | Red LED blinking, nothing on screen | I2C wiring / address; the console prints the scan result |
 | Screen freezes on the last frame | Host stopped; it returns to the splash after 4 s |

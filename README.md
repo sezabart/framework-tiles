@@ -19,8 +19,9 @@ display over I2C.
 ```bash
 git clone https://github.com/sezabart/framework-tiles.git
 cd framework-tiles/vitals-tile
-./run.sh          # live vitals (auto-detects the tile)
-./run.sh --simulate
+./run.sh                        # live vitals, reconnects on its own
+./run.sh --simulate             # fake AI workload
+./scripts/install-autostart.sh  # start at login (systemd user service)
 ```
 
 See [`vitals-tile/README.md`](vitals-tile/README.md) for wiring, flashing and the
