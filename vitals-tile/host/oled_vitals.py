@@ -17,9 +17,11 @@ Quick start:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import math
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -264,8 +266,26 @@ def stream(ser: serial.Serial, sampler, renderer: Renderer, fps: float, verbose:
         time.sleep(max(0.0, next_tick - time.monotonic()))
 
 
+def acquire_lock(cfg: dict):
+    """One streamer per tile, so a manual run cannot fight the service."""
+    name = f"vitals-tile-{(cfg.get('serial') or 'any').lower()}.lock"
+    handle = open(Path(tempfile.gettempdir()) / name, "w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        return None
+    return handle
+
+
 def live(args, cfg: dict, renderer: Renderer) -> None:
     """Stream forever; wait for the tile and reconnect when it disappears."""
+    lock = acquire_lock(cfg)
+    if lock is None:
+        raise SystemExit(
+            "Another vitals-tile host is already streaming to this tile "
+            "(systemd service?). Stop it with: systemctl --user stop vitals-tile"
+        )
     missing = None
     while True:
         ser, tile, reason = find_tile(cfg, args.port, args.verbose)

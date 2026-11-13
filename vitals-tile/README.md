@@ -200,6 +200,7 @@ Add the USB hub + CMSIS-DAP later; the OLED path stays a dumb I2C sink.
 
 | Symptom | Fix |
 | :--- | :--- |
+| `Another vitals-tile host is already streaming` | The autostart service owns the tile; `systemctl --user stop vitals-tile` first |
 | `connected but not answering` | `code.py` is not running — press Ctrl-D in the tile's REPL or re-save the file |
 | `Tile is in BOOTSEL mode` | The board was double-tapped; reflash CircuitPython and the firmware |
 | `none answered the handshake` | Check the console (`screen /dev/ttyACM0 115200`): is `SSD1306: 0x3c` printed? |
