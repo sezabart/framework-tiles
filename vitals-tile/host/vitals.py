@@ -64,24 +64,27 @@ class VitalsSampler:
 
     # -- discovery ---------------------------------------------------------
     def _discover(self) -> dict[str, str | None]:
-        gpu_card = None
+        gpu_busy = None
         for path in sorted(glob.glob("/sys/class/drm/card[0-9]*/device/gpu_busy_percent")):
-            gpu_card = os.path.dirname(os.path.dirname(path))
+            gpu_busy = path
             break
 
         cpu_hw = _hwmon("k10temp") or _hwmon("coretemp")
         gpu_hw = _hwmon("amdgpu")
         ec_hw = _hwmon("cros_ec")
 
-        return {
-            "gpu_busy": os.path.join(gpu_card, "gpu_busy_percent") if gpu_card else None,
+        sources = {
+            "gpu_busy": gpu_busy,
             "cpu_temp": os.path.join(cpu_hw, "temp1_input") if cpu_hw else None,
             "gpu_temp": os.path.join(gpu_hw, "temp1_input") if gpu_hw else None,
-            "gpu_power": (os.path.join(gpu_hw, "power1_average") if gpu_hw else None),
-            "gpu_power_input": (os.path.join(gpu_hw, "power1_input") if gpu_hw else None),
+            "gpu_power": os.path.join(gpu_hw, "power1_average") if gpu_hw else None,
+            "gpu_power_input": os.path.join(gpu_hw, "power1_input") if gpu_hw else None,
             "fan": os.path.join(ec_hw, "fan1_input") if ec_hw else None,
             "fan2": os.path.join(ec_hw, "fan2_input") if ec_hw else None,
         }
+        # Only advertise what actually exists, so a typo shows up as "missing"
+        # instead of silently rendering 0%.
+        return {name: (path if path and os.path.exists(path) else None) for name, path in sources.items()}
 
     @property
     def source_summary(self) -> str:

@@ -117,7 +117,7 @@ Thresholds live in `status_word()` in [`host/render.py`](host/render.py).
 | Tile | Source | Notes |
 | :--- | :--- | :--- |
 | CPU % | `/proc/stat` delta | all cores, smoothed |
-| GPU % | `/sys/class/drm/card*/device/gpu_busy_percent` | Radeon 8060S |
+| GPU % | `/sys/class/drm/card*/device/gpu_busy_percent` | GPU busy, includes ROCm/Vulkan compute work; cross-checked against `drm-engine-*` fdinfo counters |
 | RAM % | `/proc/meminfo` `MemAvailable` | used = total − available, like GNOME |
 | °C | `k10temp` `temp1_input` | package/Tctl |
 | W | `amdgpu` `power1_average` | APU package power |
