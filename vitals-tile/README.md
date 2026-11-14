@@ -99,6 +99,10 @@ Wiring (the Feather's STEMMA QT connector is the same bus):
 The firmware scans the bus at boot and prints the result on the console. If no
 panel answers it blinks the red LED instead of pretending to work.
 
+**Orientation:** this tile mounts the panel rotated 180°, so the firmware's
+SSD1306 init uses `0xA0` + `0xC0`. For an upright module swap those to `0xA1` +
+`0xC8` (both bytes flip the image on the panel, no host changes).
+
 ## Flashing a fresh board
 
 1. Download CircuitPython for the board:
